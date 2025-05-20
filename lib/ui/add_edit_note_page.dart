@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:personal_notes/db/notes_database.dart';
 import 'package:personal_notes/models/note.dart';
+import 'package:personal_notes/ui/add_edit/note_form.dart';
 import 'package:personal_notes/videmodel/notes_view_model.dart';
 import 'package:provider/provider.dart';
 
@@ -34,6 +34,14 @@ class _AddEditNotePageState extends State<AddEditNotePage> {
     super.dispose();
   }
 
+  Future<void> _deleteNote() async {
+    final notesVM = Provider.of<NotesViewModel>(context, listen: false);
+    if (widget.note != null && widget.note!.id != null) {
+      await notesVM.deleteNote(widget.note!.id!);
+      Navigator.of(context).pop(true);
+    }
+  }
+
   Future<void> _saveNote() async {
     if (_formKey.currentState!.validate()) {
       final viewModel = context.read<NotesViewModel>();
@@ -59,31 +67,75 @@ class _AddEditNotePageState extends State<AddEditNotePage> {
     final isEditing = widget.note != null;
 
     return Scaffold(
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: Text(isEditing ? 'Edit Note' : 'Add Note'),
-        actions: [IconButton(icon: Icon(Icons.save), onPressed: _saveNote)],
+        backgroundColor: Colors.white,
+        elevation: 2,
+        iconTheme: const IconThemeData(color: Colors.black87),
+        title: Text(
+          isEditing ? 'Edit Note' : 'Add Note',
+          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+        ),
+        actions: [
+          if (isEditing)
+            IconButton(
+              icon: const Icon(Icons.delete),
+              onPressed: () async {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder:
+                      (context) => AlertDialog(
+                        title: const Text('Confirm Delete'),
+                        content: const Text(
+                          'Are you sure you want to delete this note?',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            child: const Text('Delete'),
+                          ),
+                        ],
+                      ),
+                );
+
+                if (confirmed == true) {
+                  await _deleteNote();
+                }
+              },
+            ),
+        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(14),
+        child: Center(
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(labelText: 'Title'),
-                validator:
-                    (value) =>
-                        value == null || value.isEmpty ? 'Enter Title' : null,
+              Form(
+                key: _formKey,
+                child: NoteForm(
+                  titleController: _titleController,
+                  contentController: _contentController,
+                ),
               ),
-              SizedBox(height: 16),
-              TextFormField(
-                controller: _contentController,
-                decoration: const InputDecoration(labelText: 'Content'),
-                maxLines: 6,
-                validator:
-                    (value) =>
-                        value == null || value.isEmpty ? 'Enter Content' : null,
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                label: Text(
+                  isEditing ? 'Update Note' : 'Save Note',
+                  style: TextStyle(color: Colors.white),
+                ),
+                onPressed: _saveNote,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color.fromARGB(255, 132, 104, 181),
+                  minimumSize: const Size.fromHeight(50), // tombol lebar penuh
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
               ),
             ],
           ),

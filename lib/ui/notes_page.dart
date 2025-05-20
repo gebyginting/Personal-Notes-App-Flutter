@@ -24,26 +24,30 @@ class _NotesPageState extends State<NotesPage> {
   @override
   void initState() {
     super.initState();
-    _notesFuture = Provider.of<NotesViewModel>(
-      context,
-      listen: false,
-    ).fetchNotes().then((_) {
-      final notes = Provider.of<NotesViewModel>(context, listen: false).notes;
-      setState(() {
-        filteredNotes = notes;
-      });
+    _notesFuture = _fetchNotesAndSetFiltered();
+  }
+
+  Future<void> _fetchNotesAndSetFiltered() async {
+    final notesVM = Provider.of<NotesViewModel>(context, listen: false);
+    await notesVM.fetchNotes();
+    setState(() {
+      filteredNotes = notesVM.notes;
     });
   }
 
   void onSearchTextChanged(String searchText) {
     final notesVM = Provider.of<NotesViewModel>(context, listen: false);
     setState(() {
-      filteredNotes = NoteSearchHelper.filterNotes(searchText, notesVM.notes);
+      if (searchText.isEmpty) {
+        filteredNotes = notesVM.notes;
+      } else {
+        filteredNotes = NoteSearchHelper.filterNotes(searchText, notesVM.notes);
+      }
     });
   }
 
-  getRandomColor() {
-    Random random = Random();
+  Color getRandomColor() {
+    final random = Random();
     return backgroundColors[random.nextInt(backgroundColors.length)];
   }
 
@@ -56,13 +60,11 @@ class _NotesPageState extends State<NotesPage> {
       body: FutureBuilder(
         future: _notesFuture,
         builder: (context, snapshot) {
-          // if (snapshot.connectionState == ConnectionState.waiting) {
-          //   return const Center(child: CircularProgressIndicator());
-          // }
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-          final notes = notesVM.notes;
-
-          if (notes.isEmpty) {
+          if (filteredNotes.isEmpty) {
             return const Center(child: Text('No notes found.'));
           }
 
@@ -78,7 +80,7 @@ class _NotesPageState extends State<NotesPage> {
                   onChanged: onSearchTextChanged,
                   decoration: InputDecoration(
                     hintText: 'Search notes...',
-                    prefixIcon: Icon(Icons.search),
+                    prefixIcon: const Icon(Icons.search),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -92,16 +94,21 @@ class _NotesPageState extends State<NotesPage> {
                     crossAxisCount: 2,
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
-                    itemCount: notes.length,
+                    itemCount: filteredNotes.length,
                     itemBuilder: (context, index) {
-                      final note = notes[index];
+                      final note = filteredNotes[index];
                       return GestureDetector(
                         onTap: () async {
-                          await Navigator.of(context).push(
+                          final result = await Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => AddEditNotePage(note: note),
                             ),
                           );
+
+                          if (result == true) {
+                            _searchController.clear();
+                            await _fetchNotesAndSetFiltered();
+                          }
                         },
                         child: Container(
                           padding: const EdgeInsets.all(12),
@@ -146,30 +153,13 @@ class _NotesPageState extends State<NotesPage> {
           final result = await Navigator.of(
             context,
           ).push(MaterialPageRoute(builder: (_) => const AddEditNotePage()));
+
           if (result == true) {
-            setState(() {
-              _searchController.clear();
-              _notesFuture = notesVM.fetchNotes();
-            });
+            _searchController.clear();
+            await _fetchNotesAndSetFiltered();
           }
         },
       ),
     );
   }
 }
-
-          //   return ListView.builder(
-          //     itemCount: notesVM.notes.length,
-          //     itemBuilder: (context, index) {
-          //       final note = notesVM.notes[index];
-          //       return ListTile(
-          //         title: Text(note.title),
-          //         subtitle: Text(note.content),
-          //         trailing: IconButton(
-          //           onPressed: () => notesVM.deleteNote(note.id!),
-          //           icon: Icon(Icons.delete),
-          //         ),
-          //       );
-          //     },
-          //   );
-          // },
